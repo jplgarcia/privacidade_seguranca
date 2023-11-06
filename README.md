@@ -8,8 +8,6 @@ Select a user from the list on file "registered_users.csv"
 
 send message using publick key of receipient + message text
 
-Certainly! Below is a sample README.md file to explain the server and client programs, including their functionality and usage:
-
 ---
 
 # Secure Messaging System with Server and Client
