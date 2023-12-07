@@ -5,12 +5,20 @@ import java.io.Serializable;
 public class UserData implements Serializable {
     private String publicKey;
     private String ipAddress;
+    private String username;
     private int port;
     private long lastPingTime;
 
     public UserData(String publicKey, String ipAddress) {
         this.publicKey = publicKey;
         this.ipAddress = ipAddress;
+        this.lastPingTime = System.currentTimeMillis();
+    }
+
+    public UserData(String publicKey, String ipAddress, String username) {
+        this.publicKey = publicKey;
+        this.ipAddress = ipAddress;
+        this.username = username;
         this.lastPingTime = System.currentTimeMillis();
     }
 
@@ -32,5 +40,13 @@ public class UserData implements Serializable {
 
     public void setLastPingTime(long lastPingTime) {
         this.lastPingTime = lastPingTime;
+    }
+
+    public String getUsername() {
+        return username != null ? username : "unknown";
+    }
+
+    public void setUsername(String un) {
+        username = un;
     }
 }

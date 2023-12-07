@@ -13,21 +13,31 @@ import java.net.http.HttpResponse;
 import java.nio.file.Paths;
 
 public class IpChecker {
+
+    public static void main(String[] args) {
+        try {
+            String externalIP = getExternalIP();
+            System.out.println("Your external IP address is: " + externalIP);
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
     public static String getExternalIP() throws IOException, InterruptedException {
-        // Define the URL as a URI
-        URI uri = URI.create("http://checkip.amazonaws.com");
+        // // Define the URL as a URI
+        // URI uri = URI.create("http://checkip.amazonaws.com");
 
-        // Create an HttpClient
-        HttpClient httpClient = HttpClient.newHttpClient();
+        // // Create an HttpClient
+        // HttpClient httpClient = HttpClient.newHttpClient();
 
-        // Create an HttpRequest
-        HttpRequest request = HttpRequest.newBuilder(uri).build();
+        // // Create an HttpRequest
+        // HttpRequest request = HttpRequest.newBuilder(uri).build();
 
-        // Send the request and receive a response
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        // // Send the request and receive a response
+        // HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-        // Extract and return the external IP address from the response
-        //return response.body().trim();
+        // // Extract and return the external IP address from the response
+        // return "172.22.64.1";//response.body().trim();
 
 
         try {

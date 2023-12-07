@@ -25,7 +25,17 @@ public class P2PClient {
     private static final String SERVER_HOST = "localhost"; // Change this to the server's IP address or hostname
     private static final int SERVER_PORT = 12345;
 
-    private static final int MESSAGE_PORT = 54325;
+    private static int MESSAGE_PORT = 54325;
+    private static String username = "unknown";
+
+
+    public void changePort(int port) {
+        MESSAGE_PORT = port;
+    }
+
+    public void changeUsername(String un) {
+        username = un;
+    }
 
     public static void main(String[] args) throws InvalidKeySpecException, IOException, InterruptedException {
         try {
@@ -119,7 +129,7 @@ public class P2PClient {
                 System.out.println("Error getting external address");
                 return;
             }
-            UserData pingData = new UserData(publicKeyString, address);
+            UserData pingData = new UserData(publicKeyString, address, username);
             outputStream.writeObject(pingData);
 
             // Receive and print the list of online users
@@ -173,7 +183,7 @@ public class P2PClient {
         try { 
             BufferedWriter writer = new BufferedWriter(new FileWriter(csvFile));
             for (UserData user : onlineUsers.values()) {
-                String line = String.join(",", user.getPublicKey(), user.getIpAddress());
+                String line = String.join(",", user.getPublicKey(), user.getIpAddress(), user.getUsername());
                 writer.write(line);
                 writer.newLine();
             }
