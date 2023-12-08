@@ -94,7 +94,10 @@ public class App_Visual {
 			usernames.add(username);
 		}
 
-		userList = new JList<>(ArrayList.);
+		DefaultListModel<String> listModel = new DefaultListModel<>();
+		for (String item : usernames) {
+			listModel.addElement(item);
+		}
 		 // set new users
 		userList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		userList.addListSelectionListener(e -> {
