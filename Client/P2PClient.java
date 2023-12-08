@@ -30,33 +30,16 @@ public class P2PClient {
 
     private static final int MESSAGE_PORT = 54325;
 
-    public P2PClient(){
+    private static String username;
 
-        String currentIp = IpChecker.getExternalIP();
-
-
-            else{
-
-                //String pK = loadPublicKey()
-                //loadPublicKey(/.)
-
-                //String publicKeyString = Base64.getEncoder().encodeToString(publicKey.getEncoded());
-
-                // Now you can use publicKeyString in UserData
-                //UserData newUser = new UserData(publicKey, currentIp);
-                // Add a new user
-                //UserData newUser = new UserData("new user's public key", currentIp); // replace with actual public key generator
-                //users.put("new user's username", newUser); // replace with actual username
-
-                // Save to CSV
-                saveRegisteredUsersToCSV(users);
-            }
-        }
-
-        //try {
+    private static ObjectOutputStream outputStream;
+    private static ObjectInputStream inputStream;
 
 
-            /*
+    public P2PClient(String userName){
+        username = userName;
+        try {
+            String currentIp = IpChecker.getExternalIP();
             KeyPair keyPair = loadOrGenerateKeys();
             String publicKeyString = Base64.getEncoder().encodeToString(keyPair.getPublic().getEncoded());
 
@@ -64,16 +47,12 @@ public class P2PClient {
             Thread messageListener = new Thread(new MessageListener());
             messageListener.start();
 
-            // Start a thread to read and send messages from the command line
-            Thread messageSender = new Thread(new MessageSender());
-            messageSender.start();
-
             Socket socket = new Socket(SERVER_HOST, SERVER_PORT);
-            ObjectOutputStream outputStream = new ObjectOutputStream(socket.getOutputStream());
-            ObjectInputStream inputStream = new ObjectInputStream(socket.getInputStream());
+            outputStream = new ObjectOutputStream(socket.getOutputStream());
+            inputStream = new ObjectInputStream(socket.getInputStream());
 
             // Send user information as serialized object
-            UserData userData = new UserData(publicKeyString, IpChecker.getExternalIP() + ":" + String.valueOf(MESSAGE_PORT)); // Change port as needed
+            UserData userData = new UserData(publicKeyString, IpChecker.getExternalIP() + ":" + String.valueOf(MESSAGE_PORT), username); // Change port as needed
             outputStream.writeObject(userData);
 
             System.out.println("Connected to the server.");
@@ -82,11 +61,15 @@ public class P2PClient {
             ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
             scheduler.scheduleAtFixedRate(() -> sendPing(outputStream, inputStream, publicKeyString), 0, 45, TimeUnit.SECONDS);
 
-        } catch (IOException | NoSuchAlgorithmException e) {
-            e.printStackTrace();*/
+        } catch (IOException | InvalidKeySpecException | InterruptedException | NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+
     }
 
-
+    public void setUsername(String un) {
+        username = un;
+    }
 
     public static void main(String[] args) throws InvalidKeySpecException, IOException, InterruptedException, NoSuchAlgorithmException {
 
@@ -143,7 +126,17 @@ public class P2PClient {
         Files.write(file.toPath(), encodedKey);
     }
 
-    private static void sendPing(ObjectOutputStream outputStream, ObjectInputStream inputStream, String publicKeyString) {
+
+    public void forcePing() throws Exception {
+        try {
+            KeyPair keyPair = loadOrGenerateKeys();
+            String publicKeyString = Base64.getEncoder().encodeToString(keyPair.getPublic().getEncoded());
+            sendPing(outputStream, inputStream, publicKeyString);
+        } catch (Exception e) {
+            throw new Exception("failed to force ping");
+        }
+    }
+    public static void sendPing(ObjectOutputStream outputStream, ObjectInputStream inputStream, String publicKeyString) {
         try {
             String address;
             try {
@@ -152,7 +145,7 @@ public class P2PClient {
                 System.out.println("Error getting external address");
                 return;
             }
-            UserData pingData = new UserData(publicKeyString, address);
+            UserData pingData = new UserData(publicKeyString, address, username);
             outputStream.writeObject(pingData);
 
             // Receive and print the list of online users
@@ -164,6 +157,7 @@ public class P2PClient {
                 for (UserData user : onlineUsersList) {
                     if (registeredUsers.containsKey(user.getPublicKey())) {
                         registeredUsers.get(user.getPublicKey()).setIpAddress(user.getIpAddress());
+                        registeredUsers.get(user.getPublicKey()).setUsername(user.getUsername());
                     } else {
                         registeredUsers.put(user.getPublicKey(), user);
                     }
@@ -187,8 +181,8 @@ public class P2PClient {
                 if (parts.length >= 1) {
                     String publicKey = parts[0];
                     String ipAddress = parts[1];
-                    //String username = parts[2];
-                    UserData ud = new UserData(publicKey, ipAddress);
+                    String username = parts[2];
+                    UserData ud = new UserData(publicKey, ipAddress, username);
                     onlineUsers.put(publicKey, ud);
                 }
             }
@@ -233,6 +227,41 @@ public class P2PClient {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public static String encryptMessage(String message, String publicKeyString) throws Exception {
+        // Decode the Base64 encoded public key
+        byte[] publicKeyBytes = Base64.getDecoder().decode(publicKeyString);
+
+        // Create a PublicKey object from the decoded bytes
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(publicKeyBytes);
+        PublicKey publicKey = keyFactory.generatePublic(publicKeySpec);
+
+        // Initialize the Cipher for encryption with PKCS#1 v1.5 padding
+        Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+        cipher.init(Cipher.ENCRYPT_MODE, publicKey);
+
+        // Encrypt the message
+        byte[] encryptedBytes = cipher.doFinal(message.getBytes());
+
+        // Encode the encrypted bytes as Base64 and return the result as a string
+        return Base64.getEncoder().encodeToString(encryptedBytes);
+    }
+
+    public static String signMessage(String message) throws Exception {
+        File privateKeyFile = new File("./privateKey.txt");
+        PrivateKey privateKey = loadPrivateKey(privateKeyFile);
+
+        // Create a Signature object and initialize it with the private key
+        Signature signature = Signature.getInstance("SHA256withRSA");
+        signature.initSign(privateKey);
+        // Update the Signature object with the data to be signed
+        signature.update(message.getBytes());
+        // Generate the digital signature
+        byte[] digitalSignature = signature.sign();
+        // Encode the digital signature as Base64 and return it
+        return Base64.getEncoder().encodeToString(digitalSignature);
     }
 
     private static void saveRegisteredUsersToCSV(Map<String, UserData> onlineUsers) {
@@ -354,75 +383,4 @@ public class P2PClient {
 
     }
 
-    private static class MessageSender implements Runnable {
-        
-        @Override
-        public void run() {
-            Scanner scanner = new Scanner(System.in);
-            while (true) {
-                // Read input from the command line
-                System.out.print("Enter recipient's public key and message (e.g., publicKey message): ");
-                String input = scanner.nextLine();
-                String[] parts = input.split(" ");
-                
-                if (parts.length != 2) {
-                    System.out.println("Invalid input. Usage: publicKey message");
-                    continue;
-                }
-                
-                String recipientPublicKey = parts[0];
-                String message = parts[1];
-                
-                // Check if the recipient is a contact
-                Map<String, UserData> registeredUsers = loadRegisteredUsersFromCSV();
-                if (registeredUsers.containsKey(recipientPublicKey)) {
-                    UserData recipient = registeredUsers.get(recipientPublicKey);
-                    sendMessageToRecipient(recipient, message);
-                } else {
-                    System.out.println("Recipient is not online.");
-                }
-            }
-        }
-
-        public static String encryptMessage(String message, String publicKeyString) throws Exception {
-            // Decode the Base64 encoded public key
-            byte[] publicKeyBytes = Base64.getDecoder().decode(publicKeyString);
-
-            // Create a PublicKey object from the decoded bytes
-            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-            X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(publicKeyBytes);
-            PublicKey publicKey = keyFactory.generatePublic(publicKeySpec);
-
-            // Initialize the Cipher for encryption with PKCS#1 v1.5 padding
-            Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-            cipher.init(Cipher.ENCRYPT_MODE, publicKey);
-
-            // Encrypt the message
-            byte[] encryptedBytes = cipher.doFinal(message.getBytes());
-
-            // Encode the encrypted bytes as Base64 and return the result as a string
-            return Base64.getEncoder().encodeToString(encryptedBytes);
-        }
-
-        public static String signMessage(String message) throws Exception {
-            File privateKeyFile = new File("./privateKey.txt");
-            PrivateKey privateKey = loadPrivateKey(privateKeyFile);
-
-            // Create a Signature object and initialize it with the private key
-            Signature signature = Signature.getInstance("SHA256withRSA");
-            signature.initSign(privateKey);
-            // Update the Signature object with the data to be signed
-            signature.update(message.getBytes());
-            // Generate the digital signature
-            byte[] digitalSignature = signature.sign();
-            // Encode the digital signature as Base64 and return it
-            return Base64.getEncoder().encodeToString(digitalSignature);
-        }
-
-        public static void appVisualizer(){
-
-        }
-
-        
-    }
 }

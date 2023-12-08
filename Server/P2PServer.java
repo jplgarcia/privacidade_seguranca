@@ -68,14 +68,7 @@ public class P2PServer {
                     // Receive ping as serialized object
                     UserData pingData = (UserData) inputStream.readObject();
                     onlineUsers.get(pingData.getPublicKey()).setLastPingTime(System.currentTimeMillis());
-
-                    // Send a response to the client if needed
-
-                    // For example, you can return the list of online users
-                    // For example, you can return the list of online users with all their information
                     List<UserData> onlineUserList = new ArrayList<>(onlineUsers.values());
-
-                    // Serialize and send the list of online users
                     outputStream.writeObject(onlineUserList);
                 }
             } catch (IOException | ClassNotFoundException e) {

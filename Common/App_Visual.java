@@ -11,18 +11,23 @@ import java.security.PublicKey;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class App_Visual {
 	static JFrame frame;
 	static JPanel chatPanel;
-	static JList<String> userList;
+	static JList<String> userList = null;
 	static JTextArea chatArea;
 	static JTextField chatField;
 	static JTextField usernameField;
 	static String username;
 
-	static P2PClient client = new P2PClient();
+	static P2PClient client;
 	static Map<String, String> chatHistories = new HashMap<>();
+
+	static DefaultListModel<String> listModel = new DefaultListModel<>();;
 
 	public static void main(String[] args) {
 
@@ -30,10 +35,17 @@ public class App_Visual {
 		App_Visual.registerNewUser();
 		App_Visual.panelAfterRegistration();
 		App_Visual.loadConversations();
-		App_Visual.loadChatArea();
 
+		ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+		scheduler.scheduleAtFixedRate(() -> redraw(), 0, 3, TimeUnit.SECONDS);
+
+		App_Visual.loadChatArea();
 	}
 
+	public static void redraw() {
+		
+		//chamar funcao que faz la em baixo no TODO
+	}
 
 	public static void frame() {
 		//request username
@@ -64,9 +76,17 @@ public class App_Visual {
 					username = usernameField.getText();
 					usernamePanel.add(usernameField);
 					System.out.println("Username: " + username);// Set username in UserData
+					client = new P2PClient(username);
 					frame.remove(usernamePanel);
 					frame.add(chatPanel, BorderLayout.CENTER);
 					chatPanel.setVisible(true); // Make chatPanel visible
+					try {
+						client.forcePing();						
+					} catch (Exception er) {
+						System.out.println("failed to ping after user registration");
+						return;
+					}
+					
 					frame.revalidate();
 					frame.repaint();
 				}
@@ -83,7 +103,8 @@ public class App_Visual {
 	}
 		// User list
 	public static void loadConversations() {
-		Map<String, UserData> users = new HashMap<>(client.loadRegisteredUsersFromCSV()); //put all users into hashMap
+		
+		Map<String, UserData> users = client.loadRegisteredUsersFromCSV(); //put all users into hashMap
 
 		ArrayList<String> usernames = new ArrayList<String>();
 		for (Map.Entry<String, UserData> entry : users.entrySet()) {
@@ -94,27 +115,30 @@ public class App_Visual {
 			usernames.add(username);
 		}
 
-		DefaultListModel<String> listModel = new DefaultListModel<>();
+		// listModel.clear();
 		for (String item : usernames) {
-			listModel.addElement(item);
+			if (!listModel.contains(item))
+				listModel.addElement(item);
 		}
-		 // set new users
+		
+		userList = new JList<>(listModel);
 		userList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		userList.addListSelectionListener(e -> {
 			if (!e.getValueIsAdjusting()) {
-				String selectedUser = userList.getSelectedValue();
-					// Load chat for selected user
-				chatArea.setText(chatHistories.getOrDefault(selectedUser, ""));
-				}
-			});
+			String selectedUser = userList.getSelectedValue();
+				// Load chat for selected user
+			chatArea.setText(chatHistories.getOrDefault(selectedUser, ""));
+			}
+		});
 		chatPanel.add(new JScrollPane(userList), BorderLayout.WEST);
-		}
 
-	public static void loadChatArea(){
+		
+	}
+	// TODO: fucao faz o seguinte: chama isso users= loadRegisteredUsersFromCSV, atualizar listmodel removendo tudo que nao ta no users e adicionando tudo que ta no users e nao ta no listmodel
+
+	public static void loadChatArea() {	
 		// Chat area
-		//client.sendMessageToRecipient(UserData recipient, String message);
-
-;		chatArea = new JTextArea();
+		chatArea = new JTextArea();
 		chatArea.setEditable(false);
 		chatPanel.add(new JScrollPane(chatArea), BorderLayout.CENTER);
 
@@ -134,6 +158,20 @@ public class App_Visual {
 
 			// Save message to chat history
 			String selectedUser = userList.getSelectedValue();
+			Map<String, UserData> users = client.loadRegisteredUsersFromCSV(); //put all users into hashMap
+			UserData selectedUserData = null;
+			ArrayList<String> usernames = new ArrayList<String>();
+			for (Map.Entry<String, UserData> entry : users.entrySet()) {
+				if (entry.getValue().getUsername().equals(selectedUser)) {
+					selectedUserData = entry.getValue();
+				}
+			}
+			if (selectedUserData == null) {
+				return;
+			}
+
+			client.sendMessageToRecipient(selectedUserData, message);
+
 			String history = chatHistories.getOrDefault(selectedUser, "");
 			history += "\n" + message;
 			chatHistories.put(selectedUser, history);
