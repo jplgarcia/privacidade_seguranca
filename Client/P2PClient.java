@@ -172,7 +172,7 @@ public class P2PClient {
 
     public static Map<String, UserData> loadRegisteredUsersFromCSV() {
         Map<String, UserData> onlineUsers = new HashMap<>();
-        String csvFile = "registered_users.csv"; // Replace with the actual CSV file path
+        String csvFile = "registered_users.csv"; 
         try {
             BufferedReader reader = new BufferedReader(new FileReader(csvFile));
             String line;
