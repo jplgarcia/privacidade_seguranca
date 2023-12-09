@@ -7,6 +7,7 @@ import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
@@ -59,7 +60,7 @@ public class P2PClient {
 
             // Start a thread to periodically ping the server
             ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-            scheduler.scheduleAtFixedRate(() -> sendPing(outputStream, inputStream, publicKeyString), 0, 45, TimeUnit.SECONDS);
+            scheduler.scheduleAtFixedRate(() -> sendPing(outputStream, inputStream, publicKeyString), 0, 5, TimeUnit.SECONDS);
 
         } catch (IOException | InvalidKeySpecException | InterruptedException | NoSuchAlgorithmException e) {
             e.printStackTrace();
@@ -127,23 +128,24 @@ public class P2PClient {
     }
 
 
-    public void forcePing() throws Exception {
+    public List<UserData> forcePing() throws Exception {
         try {
             KeyPair keyPair = loadOrGenerateKeys();
             String publicKeyString = Base64.getEncoder().encodeToString(keyPair.getPublic().getEncoded());
-            sendPing(outputStream, inputStream, publicKeyString);
+            return sendPing(outputStream, inputStream, publicKeyString);
         } catch (Exception e) {
             throw new Exception("failed to force ping");
         }
     }
-    public static void sendPing(ObjectOutputStream outputStream, ObjectInputStream inputStream, String publicKeyString) {
+    public static List<UserData> sendPing(ObjectOutputStream outputStream, ObjectInputStream inputStream, String publicKeyString) {
+        List<UserData> onlineUsersList = new ArrayList<UserData>();
         try {
             String address;
             try {
                 address = IpChecker.getExternalIP() + ":" + String.valueOf(MESSAGE_PORT);                
             } catch (Exception e) {
                 System.out.println("Error getting external address");
-                return;
+                return onlineUsersList;
             }
             UserData pingData = new UserData(publicKeyString, address, username);
             outputStream.writeObject(pingData);
@@ -151,7 +153,7 @@ public class P2PClient {
             // Receive and print the list of online users
             Object response = inputStream.readObject();
             if (response instanceof java.util.List) {
-                List<UserData> onlineUsersList = (List<UserData>) response;
+                onlineUsersList = (List<UserData>) response;
                 Map<String, UserData> registeredUsers = loadRegisteredUsersFromCSV();
                                 
                 for (UserData user : onlineUsersList) {
@@ -168,6 +170,7 @@ public class P2PClient {
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
+        return onlineUsersList;
     }
 
     public static Map<String, UserData> loadRegisteredUsersFromCSV() {
@@ -297,6 +300,8 @@ public class P2PClient {
         }
 
     }
+
+
 
     private static class MessageHandler implements Runnable {
         private Socket messageSocket;

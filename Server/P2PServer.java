@@ -1,4 +1,5 @@
 package Server;
+
 import java.io.*;
 import java.net.*;
 import java.util.*;
@@ -18,7 +19,7 @@ public class P2PServer {
             System.out.println("Server started on port " + PORT);
 
             // Start a thread to periodically check for inactive users
-            scheduler.scheduleAtFixedRate(() -> checkInactiveUsers(), 1, 1, TimeUnit.MINUTES);
+            scheduler.scheduleAtFixedRate(() -> checkInactiveUsers(), 1, 10, TimeUnit.SECONDS);
 
             while (true) {
                 Socket clientSocket = serverSocket.accept();
@@ -35,7 +36,7 @@ public class P2PServer {
 
         for (Map.Entry<String, UserData> entry : onlineUsers.entrySet()) {
             long lastPingTime = entry.getValue().getLastPingTime();
-            if (currentTime - lastPingTime > TimeUnit.MINUTES.toMillis(1)) {
+            if (currentTime - lastPingTime > TimeUnit.SECONDS.toMillis(10)) {
                 usersToRemove.add(entry.getKey());
             }
         }

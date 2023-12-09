@@ -35,11 +35,10 @@ public class App_Visual {
 		registerNewUser();
 		panelAfterRegistration();
 		loadConversations();
+		loadChatArea();
 
 		ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 		scheduler.scheduleAtFixedRate(() -> redraw(), 0, 3, TimeUnit.SECONDS);
-
-		loadChatArea();
 	}
 
 	public static void redraw() {
@@ -79,12 +78,12 @@ public class App_Visual {
 					frame.remove(usernamePanel);
 					frame.add(chatPanel, BorderLayout.CENTER);
 					chatPanel.setVisible(true); // Make chatPanel visible
-					try {
-						client.forcePing();						
-					} catch (Exception er) {
-						System.out.println("failed to ping after user registration");
-						return;
-					}
+					// try {
+					// 	client.forcePing();						
+					// } catch (Exception er) {
+					// 	System.out.println("failed to ping after user registration");
+					// 	return;
+					// }
 					
 					frame.revalidate();
 					frame.repaint();
@@ -103,7 +102,7 @@ public class App_Visual {
 		// User list
 	public static void loadConversations() {
 		
-		Map<String, UserData> users = P2PClient.loadRegisteredUsersFromCSV(); //put all users into hashMap
+		Map<String, UserData> users = client.loadRegisteredUsersFromCSV(); //put all users into hashMap
 
 		ArrayList<String> usernames = new ArrayList<String>();
 		for (Map.Entry<String, UserData> entry : users.entrySet()) {
@@ -136,14 +135,40 @@ public class App_Visual {
 
 
 	public static void updateListModel() {
-		Map<String, UserData> users = P2PClient.loadRegisteredUsersFromCSV();
-		listModel.clear();
-		for(UserData user : users.values()) {
-			listModel.addElement(user.getUsername());
+		Map<String, UserData> users = client.loadRegisteredUsersFromCSV();
+		
+		int listSizeIterate = listModel.getSize();
+		ArrayList<Integer> removables = new ArrayList<Integer>();
+		for (int i = 0; i < listSizeIterate; i++) {
+			String element = listModel.elementAt(i);
+			boolean exists = false;
+			for (UserData user : users.values()) {
+				if (user.getUsername().equals(element)){
+					exists = true;
+				}
+			}
+			if (!exists) {
+				removables.add(i);
+			}
 		}
-		// TODO: fucao faz o seguinte: chama isso users= loadRegisteredUsersFromCSV, 
-		//			atualizar listmodel removendo tudo que nao ta no users e 
-		//			adicionando tudo que ta no users e nao ta no listmodel
+
+		var removablesReversed = removables.reversed();
+		for (int i = 0; i < removablesReversed.size(); i++) {
+			listModel.remove(removablesReversed.get(i));
+		}
+
+		for(UserData user : users.values()) {
+			int listSize = listModel.getSize();
+			boolean exists = false;
+			for (int i = 0; i < listSize; i++) {
+				if (listModel.elementAt(i).equals(user.getUsername())) {
+					exists = true;
+				}
+			}
+			if (!exists){
+				listModel.addElement(user.getUsername());
+			}
+		}
 	}
 
 	
