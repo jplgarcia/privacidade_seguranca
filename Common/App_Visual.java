@@ -274,6 +274,40 @@ public class App_Visual {
                         System.out.println("received wrong formatted message");
                         continue;
                     }
+					/// Caso grupo
+					/*
+					 * Criar opcao na interface pra criar grupo e selecionar usuario q estao online
+					 * 
+					 * na hora de receber, recebe tb a chave publica de todos os membro no grupo
+					 * num csv de grupos cria um arquivo dizendo quais chaves publicas tao em cada grupo
+					 * 
+					 * na hora de enviar mensagem (isso acontece no p2p client) - botaria um 4 campo separado por ### com onome do grupo
+					 * na hora de enviar mensagem tem que enviar separadamente pra todos os membros (são varios send message) e todos no final tem o ###nome_do_grupo
+					 * tambem adicionaria no final um ###usuario1,usuario2,usuario3,usuario4
+					 * sendo usuario1= chave publica do usuario 1
+					 * isso é usado para caso voce nao esteja no grupo poder regidtrar o grupo
+					 * 
+					 * se nao tiver ria
+					 * 
+					 * ou seja:
+					 * 
+					 * recebimento de mensagem:
+					 * verifica se o comprimento do split (lnha 273) é == 5 ou 3
+					 * se for 5 é mensagem em grupo
+					 * se for 3 é mensagem normal
+					 * 
+					 * mensagem normal ta funcionando, pra fazer em gurpo funcionar é algo do tipo:
+					 * 
+					 * verifica se ja faz parte do grupo com esse nome
+					 * se fizer decripta a mensagem e salva no historico e escreve no chat
+					 * se nao fizer, tem que criar a entrada daquele grupo na lista
+					 * 
+					 * 
+					 * a funcao Update list model tem que escrever e verificar e salvar nao apenas os nomes de usuario, mas tambem os de grupos
+					 * 
+					 * 
+					 * 
+					 */
                     PublicKey pbKey;
                     try {
                         byte[] encodedKey = Base64.getDecoder().decode(parts[2]);
