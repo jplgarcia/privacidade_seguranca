@@ -27,24 +27,23 @@ public class App_Visual {
 	static P2PClient client;
 	static Map<String, String> chatHistories = new HashMap<>();
 
-	static DefaultListModel<String> listModel = new DefaultListModel<>();;
+	static DefaultListModel<String> listModel = new DefaultListModel<>();
 
 	public static void main(String[] args) {
 
-		App_Visual.frame();
-		App_Visual.registerNewUser();
-		App_Visual.panelAfterRegistration();
-		App_Visual.loadConversations();
+		frame();
+		registerNewUser();
+		panelAfterRegistration();
+		loadConversations();
 
 		ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 		scheduler.scheduleAtFixedRate(() -> redraw(), 0, 3, TimeUnit.SECONDS);
 
-		App_Visual.loadChatArea();
+		loadChatArea();
 	}
 
 	public static void redraw() {
-		
-		//chamar funcao que faz la em baixo no TODO
+		updateListModel();
 	}
 
 	public static void frame() {
@@ -93,7 +92,7 @@ public class App_Visual {
 			});
 			usernamePanel.add(b);
 			frame.add(usernamePanel, BorderLayout.NORTH);
-		}
+	}
 	//}
 	public static void panelAfterRegistration(){
 		// Chat panel (initially not visible)
@@ -104,12 +103,12 @@ public class App_Visual {
 		// User list
 	public static void loadConversations() {
 		
-		Map<String, UserData> users = client.loadRegisteredUsersFromCSV(); //put all users into hashMap
+		Map<String, UserData> users = P2PClient.loadRegisteredUsersFromCSV(); //put all users into hashMap
 
 		ArrayList<String> usernames = new ArrayList<String>();
 		for (Map.Entry<String, UserData> entry : users.entrySet()) {
 			UserData userData = entry.getValue();
-			String ipAddress = userData.getIpAddress(); // assuming UserData has a getIpAddress method
+			String ipAddress = userData.getIpAddress();
 			String publicKey = userData.getPublicKey();
 			String username = userData.getUsername();
 			usernames.add(username);
@@ -134,7 +133,20 @@ public class App_Visual {
 
 		
 	}
-	// TODO: fucao faz o seguinte: chama isso users= loadRegisteredUsersFromCSV, atualizar listmodel removendo tudo que nao ta no users e adicionando tudo que ta no users e nao ta no listmodel
+
+
+	public static void updateListModel() {
+		Map<String, UserData> users = P2PClient.loadRegisteredUsersFromCSV();
+		listModel.clear();
+		for(UserData user : users.values()) {
+			listModel.addElement(user.getUsername());
+		}
+		// TODO: fucao faz o seguinte: chama isso users= loadRegisteredUsersFromCSV, 
+		//			atualizar listmodel removendo tudo que nao ta no users e 
+		//			adicionando tudo que ta no users e nao ta no listmodel
+	}
+
+	
 
 	public static void loadChatArea() {	
 		// Chat area
