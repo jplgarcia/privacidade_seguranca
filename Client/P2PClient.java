@@ -29,7 +29,7 @@ public class P2PClient {
     private static final String SERVER_HOST = "localhost"; // Change this to the server's IP address or hostname
     private static final int SERVER_PORT = 12345;
 
-    private static final int MESSAGE_PORT = 54325;
+    public static final int MESSAGE_PORT = 54325;
 
     private static String username;
 
@@ -43,10 +43,6 @@ public class P2PClient {
             String currentIp = IpChecker.getExternalIP();
             KeyPair keyPair = loadOrGenerateKeys();
             String publicKeyString = Base64.getEncoder().encodeToString(keyPair.getPublic().getEncoded());
-
-            // Create a separate thread to listen for messages
-            Thread messageListener = new Thread(new MessageListener());
-            messageListener.start();
 
             Socket socket = new Socket(SERVER_HOST, SERVER_PORT);
             outputStream = new ObjectOutputStream(socket.getOutputStream());
@@ -100,7 +96,7 @@ public class P2PClient {
         return keyFactory.generatePublic(keySpec);
     }
 
-    private static PrivateKey loadPrivateKey(File file) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
+    public static PrivateKey loadPrivateKey(File file) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
         byte[] encodedKey = Files.readAllBytes(file.toPath());
         KeyFactory keyFactory = KeyFactory.getInstance("RSA");
         PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encodedKey);
@@ -284,108 +280,6 @@ public class P2PClient {
 
     }
 
-    private static class MessageListener implements Runnable {
-        @Override
-        public void run() {
-            try (ServerSocket messageServerSocket = new ServerSocket(MESSAGE_PORT)) {
-                System.out.println("Message listener started on port " + String.valueOf(MESSAGE_PORT));
-
-                while (true) {
-                    Socket messageSocket = messageServerSocket.accept();
-                    new Thread(new MessageHandler(messageSocket)).start();
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-    }
-
-
-
-    private static class MessageHandler implements Runnable {
-        private Socket messageSocket;
-
-        public MessageHandler(Socket messageSocket) {
-            this.messageSocket = messageSocket;
-        }
-
-        @Override
-        public void run() {
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(messageSocket.getInputStream()))) {
-                String message;                
-                String decMessage;
-                while ((message = reader.readLine()) != null) {
-                    String[] parts = message.split("###");
-                    if (parts.length != 3) {
-                        System.out.println("received wrong formatted message");
-                        continue;
-                    }
-                    PublicKey pbKey;
-                    try {
-                        byte[] encodedKey = Base64.getDecoder().decode(parts[2]);
-                        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-                        X509EncodedKeySpec keySpec = new X509EncodedKeySpec(encodedKey);
-                        pbKey = keyFactory.generatePublic(keySpec);
-                        if (!verifySignature(parts[0], parts[1], pbKey)){
-                            System.out.println("invalid signature");
-                            continue;
-                        }
-                    } catch (Exception e) {
-                        System.out.println("error check signature");
-                    }
-                    try {
-                        decMessage = decryptMessage(parts[0]);
-                    } catch (Exception e) {
-                        System.out.println("error decrypting message");
-                        continue;
-                    }
-                    System.out.println("Received message: " + message);
-                    System.out.println("The message is: " + decMessage);
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-        public static String decryptMessage(String encryptedMessage) throws Exception {
-            File privateKeyFile = new File("./privateKey.txt");
-            byte[] privateKeyBytes = loadPrivateKey(privateKeyFile).getEncoded();
     
-            // Create a PrivateKey object from the decoded bytes
-            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-            PKCS8EncodedKeySpec privateKeySpec = new PKCS8EncodedKeySpec(privateKeyBytes);
-            PrivateKey privateKey = keyFactory.generatePrivate(privateKeySpec);
-    
-            // Initialize the Cipher for decryption with PKCS#1 v1.5 padding
-            Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-            cipher.init(Cipher.DECRYPT_MODE, privateKey);
-    
-            // Decode the Base64 encoded encrypted message
-            byte[] encryptedBytes = Base64.getDecoder().decode(encryptedMessage);
-    
-            // Decrypt the message
-            byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
-    
-            // Convert the decrypted bytes to a string and return it
-            return new String(decryptedBytes);
-        }
-
-        public static boolean verifySignature(String message, String digitalSignature, PublicKey publicKey) throws Exception {
-            // Create a Signature object and initialize it with the sender's public key
-            Signature signature = Signature.getInstance("SHA256withRSA");
-            signature.initVerify(publicKey);
-    
-            // Update the Signature object with the received message
-            signature.update(message.getBytes());
-    
-            // Decode the received digital signature from Base64
-            byte[] signatureBytes = Base64.getDecoder().decode(digitalSignature);
-    
-            // Verify the digital signature
-            return signature.verify(signatureBytes);
-        }
-
-    }
 
 }

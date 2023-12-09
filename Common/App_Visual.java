@@ -2,13 +2,22 @@ package Common;
 
 import Client.P2PClient;
 
+import javax.crypto.Cipher;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.security.KeyFactory;
 import java.security.KeyPair;
+import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.Signature;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -39,6 +48,10 @@ public class App_Visual {
 
 		ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 		scheduler.scheduleAtFixedRate(() -> redraw(), 0, 3, TimeUnit.SECONDS);
+
+		// Create a separate thread to listen for messages
+        Thread messageListener = new Thread(new MessageListener());
+        messageListener.start();
 	}
 
 	public static void redraw() {
@@ -214,16 +227,141 @@ public class App_Visual {
 			chatHistories.put(selectedUser, history);
 
 			// Save message to file
-			try (PrintWriter out = new PrintWriter(new FileWriter("chat.txt", true))) {
-				out.println(message);
-			} catch (IOException ex) {
-				ex.printStackTrace();
-			}
+			// try (PrintWriter out = new PrintWriter(new FileWriter("chat.txt", true))) {
+			// 	out.println(message);
+			// } catch (IOException ex) {
+			// 	ex.printStackTrace();
+			// }
 		});
 		inputPanel.add(sendButton, BorderLayout.EAST);
 		chatPanel.add(inputPanel, BorderLayout.SOUTH);
 		frame.setVisible(true);//making th
 
-		}
 	}
 
+	private static class MessageListener implements Runnable {
+        @Override
+        public void run() {
+            try (ServerSocket messageServerSocket = new ServerSocket(client.MESSAGE_PORT)) {
+                System.out.println("Message listener started on port " + String.valueOf(client.MESSAGE_PORT));
+
+                while (true) {
+                    Socket messageSocket = messageServerSocket.accept();
+                    new Thread(new MessageHandler(messageSocket)).start();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+    }
+
+    private static class MessageHandler implements Runnable {
+        private Socket messageSocket;
+
+        public MessageHandler(Socket messageSocket) {
+            this.messageSocket = messageSocket;
+        }
+
+        @Override
+        public void run() {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(messageSocket.getInputStream()))) {
+                String message;                
+                String decMessage;
+                while ((message = reader.readLine()) != null) {
+                    String[] parts = message.split("###");
+                    if (parts.length != 3) {
+                        System.out.println("received wrong formatted message");
+                        continue;
+                    }
+                    PublicKey pbKey;
+                    try {
+                        byte[] encodedKey = Base64.getDecoder().decode(parts[2]);
+                        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+                        X509EncodedKeySpec keySpec = new X509EncodedKeySpec(encodedKey);
+                        pbKey = keyFactory.generatePublic(keySpec);
+                        if (!verifySignature(parts[0], parts[1], pbKey)){
+                            System.out.println("invalid signature");
+                            continue;
+                        }
+                    } catch (Exception e) {
+                        System.out.println("error check signature");
+                    }
+                    try {
+                        decMessage = decryptMessage(parts[0]);
+                    } catch (Exception e) {
+                        System.out.println("error decrypting message");
+                        continue;
+                    }
+                    System.out.println("Received message: " + message);
+                    System.out.println("The message is: " + decMessage);
+
+					Map<String, UserData> users = client.loadRegisteredUsersFromCSV(); //put all users into hashMap
+					String user = "";
+					for (Map.Entry<String, UserData> entry : users.entrySet()) {
+						if (entry.getKey().equals(parts[2])) { // get username from public keys
+							user = entry.getValue().getUsername();
+						}
+					}
+
+					String history = chatHistories.getOrDefault(user, "");
+					history += "\n" + decMessage;
+					chatHistories.put(user, history);
+
+					if (user.equals(userList.getSelectedValue())) {
+						String usermessage = user + ": " + decMessage;
+						chatArea.append("\n" + usermessage);
+					}
+
+					// Save message to file
+					// try (PrintWriter out = new PrintWriter(new FileWriter("chat.txt", true))) {
+					// 	out.println(message);
+					// } catch (IOException ex) {
+					// 	ex.printStackTrace();
+					// }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        public static String decryptMessage(String encryptedMessage) throws Exception {
+            File privateKeyFile = new File("./privateKey.txt");
+            byte[] privateKeyBytes = client.loadPrivateKey(privateKeyFile).getEncoded();
+    
+            // Create a PrivateKey object from the decoded bytes
+            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            PKCS8EncodedKeySpec privateKeySpec = new PKCS8EncodedKeySpec(privateKeyBytes);
+            PrivateKey privateKey = keyFactory.generatePrivate(privateKeySpec);
+    
+            // Initialize the Cipher for decryption with PKCS#1 v1.5 padding
+            Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+            cipher.init(Cipher.DECRYPT_MODE, privateKey);
+    
+            // Decode the Base64 encoded encrypted message
+            byte[] encryptedBytes = Base64.getDecoder().decode(encryptedMessage);
+    
+            // Decrypt the message
+            byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
+    
+            // Convert the decrypted bytes to a string and return it
+            return new String(decryptedBytes);
+        }
+
+        public static boolean verifySignature(String message, String digitalSignature, PublicKey publicKey) throws Exception {
+            // Create a Signature object and initialize it with the sender's public key
+            Signature signature = Signature.getInstance("SHA256withRSA");
+            signature.initVerify(publicKey);
+    
+            // Update the Signature object with the received message
+            signature.update(message.getBytes());
+    
+            // Decode the received digital signature from Base64
+            byte[] signatureBytes = Base64.getDecoder().decode(digitalSignature);
+    
+            // Verify the digital signature
+            return signature.verify(signatureBytes);
+        }
+
+    }
+}
