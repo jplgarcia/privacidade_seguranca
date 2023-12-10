@@ -12,7 +12,6 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Scanner;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -21,12 +20,10 @@ import javax.crypto.Cipher;
 
 import Common.UserData;
 
-import Common.App_Visual;
-
 
 public class P2PClient {
 
-    private static final String SERVER_HOST = "localhost"; // Change this to the server's IP address or hostname
+    private static final String SERVER_HOST = "localhost";
     private static final int SERVER_PORT = 12345;
 
     public static final int MESSAGE_PORT = 54325;
@@ -40,7 +37,6 @@ public class P2PClient {
     public P2PClient(String userName){
         username = userName;
         try {
-            String currentIp = IpChecker.getExternalIP();
             KeyPair keyPair = loadOrGenerateKeys();
             String publicKeyString = Base64.getEncoder().encodeToString(keyPair.getPublic().getEncoded());
 
@@ -49,7 +45,7 @@ public class P2PClient {
             inputStream = new ObjectInputStream(socket.getInputStream());
 
             // Send user information as serialized object
-            UserData userData = new UserData(publicKeyString, IpChecker.getExternalIP() + ":" + String.valueOf(MESSAGE_PORT), username); // Change port as needed
+            UserData userData = new UserData(publicKeyString, IpChecker.getExternalIP() + ":" + String.valueOf(MESSAGE_PORT), username);
             outputStream.writeObject(userData);
 
             System.out.println("Connected to the server.");
@@ -61,7 +57,6 @@ public class P2PClient {
         } catch (IOException | InvalidKeySpecException | InterruptedException | NoSuchAlgorithmException e) {
             e.printStackTrace();
         }
-
     }
 
     public void setUsername(String un) {
@@ -123,16 +118,7 @@ public class P2PClient {
         Files.write(file.toPath(), encodedKey);
     }
 
-
-    public List<UserData> forcePing() throws Exception {
-        try {
-            KeyPair keyPair = loadOrGenerateKeys();
-            String publicKeyString = Base64.getEncoder().encodeToString(keyPair.getPublic().getEncoded());
-            return sendPing(outputStream, inputStream, publicKeyString);
-        } catch (Exception e) {
-            throw new Exception("failed to force ping");
-        }
-    }
+    // Send a ping to the server and receive the list of online users
     public static List<UserData> sendPing(ObjectOutputStream outputStream, ObjectInputStream inputStream, String publicKeyString) {
         List<UserData> onlineUsersList = new ArrayList<UserData>();
         try {
@@ -151,7 +137,7 @@ public class P2PClient {
             if (response instanceof java.util.List) {
                 onlineUsersList = (List<UserData>) response;
                 Map<String, UserData> registeredUsers = loadRegisteredUsersFromCSV();
-                                
+
                 for (UserData user : onlineUsersList) {
                     if (registeredUsers.containsKey(user.getPublicKey())) {
                         registeredUsers.get(user.getPublicKey()).setIpAddress(user.getIpAddress());
@@ -171,7 +157,7 @@ public class P2PClient {
 
     public static Map<String, UserData> loadRegisteredUsersFromCSV() {
         Map<String, UserData> onlineUsers = new HashMap<>();
-        String csvFile = "registered_users.csv"; 
+        String csvFile = "registered_users.csv";
         try {
             BufferedReader reader = new BufferedReader(new FileReader(csvFile));
             String line;
@@ -192,6 +178,7 @@ public class P2PClient {
 
         return onlineUsers;
     }
+
     public void sendMessageToRecipient(UserData recipient, String message) {
         File publicKeyFile = new File("./publicKey.txt");
         String senderPublicKey;
@@ -208,7 +195,7 @@ public class P2PClient {
         try {
             encMessage = encryptMessage(message, recipient.getPublicKey());
         } catch (Exception e) {
-            System.out.println("Failed to encyrpt message");
+            System.out.println("Failed to encrypt message");
             return;
         }
         String signedMessage;
@@ -264,7 +251,7 @@ public class P2PClient {
     }
 
     private static void saveRegisteredUsersToCSV(Map<String, UserData> onlineUsers) {
-        String csvFile = "registered_users.csv"; // Replace with the actual CSV file path
+        String csvFile = "registered_users.csv";
 
         try {
             BufferedWriter writer = new BufferedWriter(new FileWriter(csvFile));
@@ -277,9 +264,5 @@ public class P2PClient {
         } catch (IOException e) {
             e.printStackTrace();
         }
-
     }
-
-    
-
 }

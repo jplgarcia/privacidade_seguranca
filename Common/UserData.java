@@ -6,7 +6,6 @@ public class UserData implements Serializable {
     private String publicKey;
     private String ipAddress;
     private String username;
-    private int port;
     private long lastPingTime;
 
     public UserData(String publicKey, String ipAddress) {
